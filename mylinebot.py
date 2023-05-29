@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import json
 import os
 import io
+import re
 #import random
 # 載入 LINE Message API 相關函式庫
 from linebot import LineBotApi, WebhookHandler
@@ -14,7 +15,7 @@ import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 load_dotenv()
-base_url = 'https://utilis.serveo.net'
+base_url = 'https://deorsum.serveo.net'
 
 FlexMessage = {
 "replyToken": "00",
@@ -96,106 +97,148 @@ try:
     password=os.getenv('DATABASE_USERPASS'))
     with connection.cursor() as c:
         c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'defult\'")
-        LaTeX_Preamble = c.fetchall()
-        for key, val in LaTeX_Preamble:
-            LaTeX_Preamble = val
+        file = c.fetchall()
+        for i in file:
+            file = "".join(i)
+            file = file.strip("'").strip("(").strip(")").strip(",")
+            with open(f"preambles/{file}.tex", "r") as f:
+                LaTeX_Preamble = ""
+                for i in f.readlines():
+                    LaTeX_Preamble += i
+    connection.close()
 except:
     pass
 
+def connect_database():
+    try:
+        connection = mysql.connector.connect(
+        host = os.getenv('DATABASE_ADRESS'),          # 主機名稱
+        database='linebot_latex', # 資料庫名稱
+        user=os.getenv('DATABASE_USERNAME'),        # 帳號
+        password=os.getenv('DATABASE_USERPASS'))
+        return connection
+    except:
+        pass
 
-def pre_run_check_database(lineid, tk, msg, access_token): #檢查 Database 有沒有資料，再根據資料的有無決定呼叫的函數
-    with connection.cursor() as c:
-        try:
+
+def check_msg (msg: str, tk, access_token, lineid, ):
+    regex = re.compile('\s+') 
+    msg_split = regex.split(msg)
+    tex = False
+    insert = False
+    delete = False
+    for i in msg_split:
+        if i == ".tex":
+            msg = msg[len(i)+1:]
+            tex = True
+        elif i == "insert" and tex:
+            msg = msg[len(i)+1:]
+            insert = True
+            return insert_preamble(lineid, msg, access_token, tk)
+        elif i == "replace" and tex:
+            msg = msg[len(i)+1:]
+            return replace_preamble(lineid, msg, access_token, tk)
+        elif i == "delete" and tex:
+            delete = True
+            msg = msg[len(i)+1:]
+        elif i == "new" and tex:
+            return ask_preamble(tk, access_token, lineid)
+        elif i == "show" and tex:
+            return show_preamble(lineid, tk, access_token)
+        elif i == 'line' and insert:
+            return 
+        elif i == 'preamble' and delete:
+            return 
+        elif tex:
+            return run_latex(tk, msg, access_token, lineid)
+        else:
+            print("Error")
+            return 4
+
+def preamble_check(lineid):
+    with connect_database() as connection:
+        with connection.cursor() as c:
             c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'{lineid}\'")
             result = c.fetchall()
-            if not result:
-                latex_run(LaTeX_Preamble, tk, msg, access_token)
-            else:
-                for k,v in result:
-                    latex_run(v, tk, msg, access_token)
-        except Error as e:
-            print(e)
-
-def preamble_check(lineid, token):
-    with connection.cursor() as c:
-        c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'{lineid}\'")
-        result = c.fetchall()
-        if not result:
-            return False
-        else:
-            return True
-
-def texpreamble(lineid, token):
-    with connection.cursor() as c:
-        c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'{lineid}\'")
-        result = c.fetchall()
-        if not result:
-            return "您的 LaTeX Preamble 是預設的，以下是詳細資料：\n" + LaTeX_Preamble
-        else:
-            for k,v in result:
-                return "您的 LaTeX Preamble 是客製化的，以下是詳細資料：\n" + v
-            
-def texnewpreamble (lineid):
-    with connection.cursor() as c:
-        try:
-            result = c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'{lineid}\'")
-            result = c.fetchall()
-            if result == []:
-                preamble = repr(LaTeX_Preamble)
-                print(f"INSERT INTO linelatexpreamble VALUES({lineid},{preamble});")
-                c.execute(f"INSERT INTO linelatexpreamble VALUES(\'{lineid}\',{preamble});")
-                print("OL")
-                connection.commit()
-                print("OL")
-                c.execute(f"SELECT * FROM linelatexpreamble WHERE lineid = \'{lineid}\'")
-                print("OL")
-                preamble = c.fetchall()
-                return preamble
-            else:
-                return "你已有 Preamble"
-        except Error as e:
-            print(e)
-            return e
-
-
-def texeditpreamble (msg, lineid, tk):
-    if 
-    pass
-            
-def check_latex (msg: str, lineid, tk, access_token, line_bot_api):
-    if msg.startswith(".tex "):
-        msg = msg.lstrip(".tex ")
-        executed = False
-        for i in tex_command_arry:
-            if msg.startswith(i):
-                executed=True
-                if i == "edit":
-                    msg = msg.lstrip("edit ")
-                    texeditpreamble(msg)
-                    pass
-                else:
-                    reply = command_dict[i](lineid, access_token)
-
-                print(reply)
-                if reply:
-                    reply = texpreamble(lineid, tk)
-                    line_bot_api.reply_message(tk,TextSendMessage(reply))
-                else:
-                    print("ok")
-                    header = {'Authorization':f'Bearer {access_token}','Content-Type':'application/json'}
-                    FlexMessage.update({"replyToken": tk})
-                    r = requests.post("https://api.line.me/v2/bot/message/reply", headers=header, json=FlexMessage)
-                break
-        if not executed:
-            pre_run_check_database(lineid, tk, msg, access_token)
+    if len(result) == 0:
+        return False
     else:
-        for i in LaTeX_keyword:
-            if msg.startswith(i):
-                pre_run_check_database(lineid, tk, msg, access_token)
-                break
+        for i in result:
+            val = ''.join(i)
+            val = val.strip("'").strip("(").strip(")").strip(",")
+            return val
 
+def show_preamble(lineid, tk, access_token):
+    file = preamble_check(lineid)
+    if file == False:
+        reply = "您的 LaTeX Preamble 是預設的，以下是詳細資料：\n" + LaTeX_Preamble
+        reply_msg(reply, tk, access_token)
+    else:
+        with open(f"preambles/{lineid}.tex", "r") as f:
+            file = f.readlines()
+            preamble = ""
+            for i in file:
+                preamble += i
+            reply = "您的 LaTeX Preamble 是客製化的，以下是詳細資料：\n" + preamble
+            reply_msg(reply, tk, access_token)
 
-def latex_run(preamble, tk, msg, access_token):
+def ask_preamble(tk, access_token, lineid):
+    if not preamble_check(lineid):
+        return reply_flex_msg(tk, access_token)
+    else:
+        return show_preamble(lineid, tk, access_token)
+    
+def new_preamble(lineid, tk, access_token):
+    os.system(f"cat preambles/defult.tex > preambles/{lineid}.tex")
+    with connect_database() as connection:
+        with connection.cursor() as c:
+            c.execute(f"INSERT INTO linelatexpreamble VALUES('{lineid}')")
+            connection.commit()
+    return show_preamble(lineid, tk, access_token)
+
+def insert_preamble(lineid, msg, access_token, tk):
+    if preamble_check(lineid) == False:
+        return reply_msg("Fuck", tk, access_token)
+    with open(f"preambles/{lineid}.tex", "r") as f:
+        for count, line in enumerate(f):
+            pass
+    command = rf"""
+sed -i ' ' '{count + 1}a\ 
+\{msg}
+' preambles/Ue81ff6c316b6ebe482264e577453b1da.tex
+"""
+    print(command)
+    os.system(command)
+    return show_preamble(lineid, tk, access_token)
+
+def replace_preamble(lineid, msg, access_token, tk):
+    regex = re.compile('\s+') 
+    msg_split = regex.split(msg)
+    if preamble_check(lineid) == False:
+        return reply_msg("Fuck", tk, access_token)
+    command = rf"sed -i '' 's/\{msg_split[0]}/\{msg_split[1]}/' preambles/Ue81ff6c316b6ebe482264e577453b1da.tex"
+    print(command)
+    os.system(command)
+    return show_preamble(lineid, tk, access_token)
+
+def delete_preamble(lineid, access_token, tk):
+    os.system(f"rm preambles/{lineid}.tex")
+    with connect_database() as connection:
+        with connection.cursor() as c:
+            c.execute(f"DELETE FROM linelatexpreamble VALUES('{lineid}')")
+            connection.commit()
+    return reply_msg("已刪除您的 Preamble", tk, access_token)
+
+def run_latex(tk, msg, access_token, lineid):
+    preamble = preamble_check(lineid)
+    if not preamble:
+        preamble = LaTeX_Preamble
+    else:
+        with open(f"preambles/{lineid}.tex", "r") as f:
+            file = f.readlines()
+            preamble = ""
+            for i in file:
+                preamble += i
     f = open("file.tex", "w")
     f.write(preamble)
     print(preamble)
@@ -316,13 +359,16 @@ def reply_image(number, rk, token):
     req = requests.request('POST', 'https://api.line.me/v2/bot/message/reply', headers=headers,data=json.dumps(body).encode('utf-8'))
     print(req.text)
 
-LaTeX_keyword = ["$", "\(", "\[", "$$",]
-tex_command_arry = ['preamble',"new", "edit"]
-command_dict = {
-    'new':preamble_check,
-    'edit':texeditpreamble,
-    'preamble':texpreamble
-    }
+def reply_msg(reply, tk, access_token):
+    line_bot_api = LineBotApi(access_token)
+    line_bot_api.reply_message(tk, TextSendMessage(reply))
+
+def reply_flex_msg(tk, access_token, reply = FlexMessage):
+    headers = {'Authorization':f'Bearer {access_token}','Content-Type':'application/json'}
+    reply.update({'replyToken':tk})
+    req = requests.request('POST', 'https://api.line.me/v2/bot/message/reply', headers=headers,data=json.dumps(reply).encode('utf-8'))
+
+
 
 app = Flask(__name__)
 
@@ -339,7 +385,6 @@ def linebot():
         json_data = json.loads(body)                         # json 格式化訊息內容
         access_token = os.getenv('TEST_CHANNEL')
         secret = os.getenv('TEST_SECRET')
-        line_bot_api = LineBotApi(access_token)              # 確認 token 是否正確
         handler = WebhookHandler(secret)                     # 確認 secret 是否正確
         signature = request.headers['X-Line-Signature']      # 加入回傳的 headers
         handler.handle(body, signature)                      # 綁定訊息回傳的相關資訊
@@ -356,8 +401,6 @@ def linebot():
             reply = nearest_weather(y,x) + "\n"
             reply += forecast(address)
             print(reply)
-            line_bot_api.reply_message(tk,TextSendMessage(reply))# 回傳訊息
-
         elif type=='text':
             msg = json_data['events'][0]['message']['text']  # 取得 LINE 收到的文字訊息
             if msg[:2] == "均一":
@@ -370,19 +413,16 @@ def linebot():
                 else:
                     reply = "出錯"
                 print(reply)
-                line_bot_api.reply_message(tk,TextSendMessage(reply))# 回傳訊息
+                reply_msg(reply, tk, access_token)
             else:
-                check_latex(msg, lineid, tk, access_token, line_bot_api)
+                check_msg(msg, tk, access_token, lineid)
         elif type == "postback":
             data = json_data['events'][0]['postback']['data']
             print(lineid)
             if data == "Yes":
-                reply = texnewpreamble(lineid)
-                for k, v in reply:
-                    print(v)
-                    line_bot_api.reply_message(tk,TextSendMessage(v))
+                new_preamble(lineid, tk, access_token)
             else:
-                line_bot_api.reply_message(tk,TextSendMessage("Fuck"))
+                reply_msg("Fuck", tk, access_token)
         else:
             print('No Reaction')
     except:

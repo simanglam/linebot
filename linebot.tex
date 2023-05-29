@@ -1,0 +1,52 @@
+\documentclass[12pt, margin = 1cm]{standalone}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{positioning, shapes.geometric, quotes, calc}
+\usepackage{xeCJK}
+\setCJKmainfont{獅尾彎腿黑體}
+
+\def\dis{4em}
+
+\tikzset{
+	function/.style = {
+		draw,
+		rounded corners=2mm,
+		minimum width=10em,
+		minimum height=2em,
+		text centered,
+		thick,
+		node distance  = \dis and \dis
+	}
+}
+
+
+
+\begin{document}
+\begin{tikzpicture}
+\node[function] (check_msg) at(0,0) {check\_msg};
+\node[function, left = of check_msg] (Nothing) {Nothing};
+\node[function, below left = of check_msg] (insert_preamble) {insert\_preamble};
+\node[function, left = of insert_preamble] (replace_preamble) {replace\_preamble};
+\node[function, below right = of check_msg] (run_latex) {run\_latex};
+\node[function, below left = of replace_preamble] (ask_preamble) {ask\_preamble};
+\node[function, below = 2*\dis of $(replace_preamble)!0.5!(insert_preamble)$] (show_preamble) {show\_preamble};
+\node[function, below = of show_preamble] (reply_msg) {replay\_msg};
+\node[function, below = of run_latex] (reply_image) {reply\_image};
+\node[function, below = of ask_preamble] (reply_Flexmsg) {reply\_Flex\_msg};
+
+\path[->, thick, draw] (check_msg) edge (Nothing) (check_msg) |- (show_preamble);
+\path[->, thick, draw] (check_msg) |- ($(run_latex) + (0,\dis)$) -- (run_latex) edge (reply_image) node[right] at ($(run_latex) + .65*(0,\dis)$) {跑 \LaTeX};
+\path[->, thick, draw]
+	(check_msg) |- ($(insert_preamble) + (0,\dis)$) -- (insert_preamble)node[right] at ($(insert_preamble) + .65*(0,\dis)$) {insert};
+\path[->, thick, draw]
+	(check_msg) |- ($(replace_preamble) + (0,\dis)$) -- (replace_preamble) node[right] at ($(replace_preamble) + .65*(0,\dis)$) {replace};
+\path[->, thick, draw] (insert_preamble) |- (show_preamble);
+\path[->, thick, draw] (replace_preamble) |- (show_preamble) edge (reply_msg);
+\path[->, thick, draw] 
+	(replace_preamble) -| (ask_preamble) edge (reply_Flexmsg);
+
+
+
+
+\end{tikzpicture}
+\end{document}
