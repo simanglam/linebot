@@ -12,7 +12,7 @@
 
 請掃以下 QR Code
 
-<img src="https://qr-official.line.me/gs/M_581aqkzd_GW.png">
+<img src="linebot_qrcode.png">
 
 向機器人傳送**位置資訊**即可得到以下回覆：
 
