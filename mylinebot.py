@@ -89,6 +89,8 @@ FlexMessage = {
     ]
 }
 
+LaTeX_keyword = ["$", "\[", "\("]
+
 try:
     connection = mysql.connector.connect(
     host = os.getenv('DATABASE_ADRESS'),          # 主機名稱
@@ -148,10 +150,13 @@ def check_msg (msg: str, tk, access_token, lineid, ):
         elif i == 'line' and insert:
             return 
         elif i == 'preamble' and delete:
-            return 
+            return delete_preamble(lineid, access_token, tk)
         elif tex:
             return run_latex(tk, msg, access_token, lineid)
         else:
+            for i in LaTeX_keyword:
+                if msg.startswith(i):
+                    return run_latex(tk, msg, access_token, lineid)
             print("Error")
             return 4
 
@@ -225,7 +230,7 @@ def delete_preamble(lineid, access_token, tk):
     os.system(f"rm preambles/{lineid}.tex")
     with connect_database() as connection:
         with connection.cursor() as c:
-            c.execute(f"DELETE FROM linelatexpreamble VALUES('{lineid}')")
+            c.execute(f"DELETE FROM linelatexpreamble WHERE lineid = '{lineid}'")
             connection.commit()
     return reply_msg("已刪除您的 Preamble", tk, access_token)
 

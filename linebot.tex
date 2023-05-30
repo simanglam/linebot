@@ -1,11 +1,15 @@
-\documentclass[12pt, margin = 1cm]{standalone}
+\documentclass[12pt]{NGPLA}
 \usepackage{tikz}
 \usepackage{xcolor}
 \usetikzlibrary{positioning, shapes.geometric, quotes, calc}
 \usepackage{xeCJK}
-\setCJKmainfont{獅尾彎腿黑體}
-
-\def\dis{4em}
+\setCJKmainfont[BoldFont = 獅尾彎腿黑體-Medium]{獅尾彎腿黑體-Regular}
+%\setCJKboldfont{獅尾彎腿黑體-Medium}
+\linespread{1.35}
+\usepackage{indentfirst}
+\setlength{\parindent}{24pt}
+\usepackage{enumitem}
+\def\dis{2em}
 
 \tikzset{
 	function/.style = {
@@ -19,9 +23,29 @@
 	}
 }
 
-
+\title{Si manglam 的 Line Bot}
+\author{Si manglam}
 
 \begin{document}
+\maketitle
+\begin{abstract}
+\begin{center}
+這是一個利用 Line Bot 與 Python 將 Line 聊天室與 \LaTeX 連結起來的嘗試。
+\end{center}
+\end{abstract}
+
+\section{基本使用}
+
+這個 Line 機器人提供了以下幾個功能：
+\vskip3pt
+\begin{enumerate}[labelindent=39.5pt, itemindent=0pt,leftmargin=*]
+\item 天氣觀測資料與天氣預報
+\item 均一當日三餐查詢
+\item LaTeX 語法偵測並回傳圖片
+\end{enumerate}
+
+\section{附錄：程式邏輯}
+
 \begin{tikzpicture}
 \node[function] (check_msg) at(0,0) {check\_msg};
 \node[function, left = of check_msg] (Nothing) {Nothing};
